@@ -1,0 +1,40 @@
+# ============================================================================
+# TECHMANAGER v1.0 - DEPENDENCIAS
+# Sistema de Gestión para Servicio Técnico de Dispositivos
+# ============================================================================
+
+# Interfaz gráfica PyQt5
+PyQt5>=5.15.0
+
+# Manejo de imágenes
+Pillow>=10.0.0
+
+# Generación de PDFs
+reportlab>=4.0.0
+
+# Manejo de archivos Excel
+openpyxl>=3.1.0
+
+# Seguridad y encriptación
+bcrypt>=4.0.0
+
+# Manejo de fechas
+python-dateutil>=2.8.0
+pytz>=2023.3
+
+# Tareas programadas (backups automáticos)
+schedule>=1.2.0
+
+# Backups en la nube (opcional)
+pydrive2>=1.17.0
+dropbox>=11.36.0
+
+# Impresoras térmicas
+python-escpos>=3.0
+
+# ============================================================================
+# NOTAS:
+# - Python 3.10+ requerido
+# - SQLite3 y Tkinter vienen incluidos con Python
+# - Para instalar: pip install -r requirements.txt
+# ============================================================================

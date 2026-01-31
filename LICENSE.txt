@@ -1,0 +1,45 @@
+╔══════════════════════════════════════════════════════════════════════╗
+║                     TECHMANAGER v1.0                                 ║
+║                  ACUERDO DE LICENCIA                                 ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+Copyright © 2025 TechManager. Todos los derechos reservados.
+
+IMPORTANTE: LEA CUIDADOSAMENTE ESTE ACUERDO ANTES DE INSTALAR.
+
+══════════════════════════════════════════════════════════════════════
+
+1. CONCESIÓN DE LICENCIA
+   Se le concede una licencia no exclusiva e intransferible para 
+   instalar y usar TechManager en UN (1) equipo por licencia.
+
+2. RESTRICCIONES
+   NO está permitido:
+   • Copiar, modificar o distribuir el software
+   • Realizar ingeniería inversa
+   • Alquilar o prestar el software
+   • Usar para propósitos ilegales
+
+3. PROPIEDAD INTELECTUAL
+   TechManager es propiedad exclusiva de TechManager.
+
+4. GARANTÍA LIMITADA
+   El software se proporciona "TAL CUAL" sin garantías.
+
+5. LIMITACIÓN DE RESPONSABILIDAD
+   TechManager no será responsable por daños derivados del uso
+   o imposibilidad de uso del software.
+
+6. PROTECCIÓN DE DATOS
+   Los datos permanecen en su equipo. No recopilamos información
+   personal sin su consentimiento.
+
+══════════════════════════════════════════════════════════════════════
+
+Al instalar TechManager, acepta estar obligado por estos términos.
+
+Si no está de acuerdo, no instale el software.
+
+══════════════════════════════════════════════════════════════════════
+
+© 2025 TechManager. Todos los derechos reservados.
