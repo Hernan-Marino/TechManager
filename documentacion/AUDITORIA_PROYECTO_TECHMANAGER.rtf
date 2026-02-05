@@ -1,0 +1,182 @@
+{\rtf1\ansi\deff0\nouicompat
+{\fonttbl{\f0\fswiss\fcharset0 Calibri;}{\f1\fswiss\fcharset0 Arial;}}
+{\colortbl ;\red0\green0\blue128;\red0\green128\green0;\red128\green0\blue0;}
+\f0\fs22
+
+\b\fs28 Auditor\'eda t\'e9cnica del proyecto TechManager v1.0\b0\fs22\par
+\par
+\b Enfoque:\b0  Ingenier\'eda de sistemas - revisi\'f3n de todos los m\'f3dulos (terminados y en desarrollo), mejoras, correcciones y brechas.\par
+\b Fecha de auditor\'eda:\b0  Febrero 2026\par
+\par
+\line
+\par
+
+\b\fs24 1. Resumen ejecutivo\b0\fs22\par
+\par
+\'c1rea  |  Estado  |  Cr\'edtico\par
+M\'f3dulo Clientes (l\'f3gica + UI)  |  Terminado y consistente  |  No\par
+M\'f3dulo Equipos (l\'f3gica + UI)  |  En desarrollo - errores concretos  |  S\'ed\par
+\'d3rdenes, Presupuestos, Facturaci\'f3n, Pagos, etc.  |  Parcial - incoherencias BD/imports  |  S\'ed\par
+Reportes, Auditor\'eda, Backups, Configuraci\'f3n  |  Incompletos o rotos  |  S\'ed\par
+Base de datos vs m\'f3dulos  |  Nombres de tablas/columnas no alineados  |  S\'ed\par
+\par
+Hay \b errores que impiden ejecutar flujos completos\b0  (imports incorrectos, tablas/columnas que no existen, m\'e9todos que no existen). Se recomienda priorizar la alineaci\'f3n BD + m\'f3dulos y la correcci\'f3n de imports antes de seguir con nuevas funcionalidades.\par
+\par
+\line
+\par
+
+\b\fs24 2. M\'f3dulos terminados - qu\'e9 mejorar y corregir\b0\fs22\par
+\par
+
+\b 2.1 Clientes\b0  (modulos/clientes.py + interfaz/ventanas/clientes.py)\par
+\b Estado:\b0  Terminado y alineado con la BD.\par
+\par
+\b Mejoras recomendadas:\b0\par
+1. Listado: El par\'e1metro solo_activos en listar_clientes() no se usa. Implementar el filtro o quitarlo.\par
+2. Validaci\'f3n: Unificar criterio de nombre/apellido en toda la app.\par
+3. Auditor\'eda en modificar: Considerar un solo registro con motivo "Modificaci\'f3n m\'faltiple" si hay muchos cambios.\par
+4. Eliminar: Verificar singular/plural en el mensaje de equipos activos.\par
+\par
+\b Correcciones menores:\b0  En obtener_cliente_por_id a\'f1adir el campo notas si la UI lo muestra.\par
+\par
+
+\b 2.2 Equipos\b0  (modulos/equipos_LOGICA.py + interfaz/ventanas/equipos.py)\par
+\b Estado:\b0  En desarrollo; la l\'f3gica tiene varios fallos.\par
+\par
+\b Correcciones obligatorias:\b0\par
+1. \b M\'e9todo duplicado eliminar_equipo:\b0  Hay dos definiciones (l\'edneas ~519 y ~568). Dejar una sola. Usar nombres de columnas reales: en presupuestos es estado (no estado_presupuesto); en \'f3rdenes es estado (no estado_orden).\par
+2. \b Tabla equipos_abandonados:\b0  En marcar_como_abandonado se usan columnas que no existen: estado_al_abandonar debe ser estado_equipo; id_usuario_registra debe ser registrado_por. A\'f1adir id_orden si aplica.\par
+3. \b Config:\b0  config.dias_alerta_equipo_estancado y config.dias_alerta_equipo_abandonado no existen. A\'f1adirlos en Configuraci\'f3n o usar valor por defecto (ej. 2 y 90).\par
+4. \b Estad\'edsticas:\b0  obtener_estadisticas_equipos() usa config.dias_alerta_equipo_estancado; definir por defecto si no existe.\par
+5. \b Presupuestos/\'f3rdenes del equipo:\b0  obtener_presupuestos_equipo: columna estado (no estado_presupuesto). obtener_ordenes_equipo: id_tecnico (no id_tecnico_asignado), estado (no estado_orden).\par
+6. \b Alertas autom\'e1ticas:\b0  No usar id_usuario = 1 fijo; usar usuario actual de config.\par
+\par
+\b Mejoras:\b0  Unificar ingresar_equipo() y crear_equipo(); conectar generaci\'f3n de remito cuando est\'e9 listo; documentar estados que disparan abandono autom\'e1tico.\par
+\par
+\line
+\par
+
+\b\fs24 3. M\'f3dulos con incoherencias BD / imports / API\b0\fs22\par
+\par
+
+\b 3.1 \'d3rdenes de trabajo\b0  (ordenes_LOGICA.py)\par
+- Imports: Cambiar modulos.equipos por modulos.equipos_LOGICA y modulos.facturacion por modulos.facturacion_LOGICA.\par
+- Nombres BD: id_tecnico (no id_tecnico_asignado), estado (no estado_orden), cobro_diagnostico (no cobra_diagnostico), observaciones_tecnicas (no observaciones_finales).\par
+- Orden manual: id_presupuesto es NOT NULL; hacer nullable o crear presupuesto interno.\par
+- repuestos_usados: cantidad e id_usuario (no cantidad_usada, id_usuario_uso).\par
+- Import repuestos: usar modulos.repuestos_LOGICA.\par
+- Facturaci\'f3n: trabajar con tabla facturacion (no facturas).\par
+\par
+
+\b 3.2 Presupuestos\b0  (presupuestos_LOGICA.py)\par
+- BD: estado (no estado_presupuesto), id_usuario (no id_usuario_crea), fecha_respuesta (no fecha_aceptacion/fecha_rechazo).\par
+- Config: a\'f1adir o mapear porcentaje_recargo_transferencia, dias_vencimiento_presupuesto, directorio_base/direccion/telefono/email/texto_presupuesto.\par
+- PDF: usar config.ruta_datos o subcarpeta, no directorio_base.\par
+- Aprobar presupuesto: llamar crear_orden_desde_presupuesto(id_presupuesto, id_usuario), no crear_orden(datos_orden, id_usuario) que no existe.\par
+\par
+
+\b 3.3 Facturaci\'f3n\b0  (facturacion_LOGICA.py)\par
+- Tabla facturacion (no facturas). Columnas: monto_total, monto_pagado, monto_adeudado, estado_cobro, fecha_emision. No hay numero_factura, total, id_usuario_genera.\par
+- Imports: ordenes_LOGICA y equipos_LOGICA.\par
+\par
+
+\b 3.4 Pagos\b0  (pagos_LOGICA.py)\par
+- Tabla pagos tiene id_orden, id_cliente (no id_factura). Adaptar m\'f3dulo a pagar por orden y actualizar facturacion.monto_pagado/monto_adeudado.\par
+- Import: facturacion_LOGICA.\par
+\par
+
+\b 3.5 Garant\'edas\b0  (garantias_LOGICA.py)\par
+- BD: estado (no estado_garantia), no hay id_usuario_crea. Imports: ordenes_LOGICA y equipos_LOGICA.\par
+\par
+
+\b 3.6 Repuestos\b0  (repuestos_LOGICA.py)\par
+- BD: tipo (no tipo_repuesto), no hay id_usuario_ingreso. Repuestos usados: m\'e9todo descontar_stock debe actualizar cantidad_disponible.\par
+\par
+
+\b 3.7 Remitos\b0  (remitos_LOGICA.py)\par
+- BD: fecha_emision e id_usuario (no fecha_hora_generacion ni id_usuario_genera).\par
+\par
+
+\b 3.8 Auditor\'eda\b0  (auditoria_LOGICA.py)\par
+- Tabla logs_sistema (no auditoria). Columnas motivo_modificacion y es_accion_critica.\par
+\par
+
+\b 3.9 Backups\b0  (backups_LOGICA.py)\par
+- Config: usar ruta_datos y ruta_backups, no directorio_base. Tabla: fecha_backup, tipo, ubicacion, tamanio_archivo, exitoso, mensaje_error, id_usuario (mapear desde nombre_archivo, ruta_completa, etc.).\par
+\par
+
+\b 3.10 Configuraci\'f3n\b0  (configuracion_LOGICA.py)\par
+- No leer atributos inexistentes de config. Tabla configuracion_sistema tiene columnas fijas; no hacer UPDATE SET valor = ?. Actualizar por columna concreta.\par
+\par
+
+\b 3.11 Reportes\b0  (reportes_LOGICA.py)\par
+- No existe sistema_base.base_datos. Usar base_datos.conexion.db con obtener_uno/obtener_todos. Corregir estado_orden a estado, facturas a facturacion con estado_cobro.\par
+\par
+\line
+\par
+
+\b\fs24 4. M\'f3dulos que faltan o est\'e1n a medias\b0\fs22\par
+- Usuarios: Revisar permisos por rol en la UI.\par
+- Ventana principal: Todas las ventanas existen pero varias fallar\'e1n hasta corregir l\'f3gica e imports.\par
+- Impresi\'f3n/PDF: Unificar rutas de exportaci\'f3n.\par
+\par
+\line
+\par
+
+\b\fs24 5. Base de datos - resumen de alineaci\'f3n\b0\fs22\par
+\par
+Presupuestos: estado_presupuesto -> estado | id_usuario_crea -> id_usuario | fecha_respuesta.\par
+\'d3rdenes: id_tecnico_asignado -> id_tecnico | estado_orden -> estado | cobra_diagnostico -> cobro_diagnostico | observaciones_finales -> observaciones_tecnicas.\par
+Facturaci\'f3n: facturas -> facturacion | numero_factura, total, id_usuario_genera -> monto_total, monto_pagado, monto_adeudado, estado_cobro, fecha_emision.\par
+Pagos: id_factura -> id_orden, id_cliente.\par
+Repuestos: tipo_repuesto -> tipo | quitar id_usuario_ingreso.\par
+repuestos_usados: cantidad_usada -> cantidad | id_usuario_uso -> id_usuario.\par
+Garant\'edas: estado_garantia -> estado | sin id_usuario_crea.\par
+Remitos: fecha_hora_generacion -> fecha_emision | id_usuario_genera -> id_usuario.\par
+Auditor\'eda: tabla auditoria -> logs_sistema | motivo_modificacion, es_accion_critica.\par
+Backups: mapear nombre_archivo, ruta_completa, etc. a fecha_backup, tipo, ubicacion, tamanio_archivo, id_usuario.\par
+equipos_abandonados: estado_al_abandonar -> estado_equipo | id_usuario_registra -> registrado_por.\par
+\par
+\line
+\par
+
+\b\fs24 6. Imports incorrectos - reemplazos\b0\fs22\par
+from modulos.equipos import ModuloEquipos  ->  from modulos.equipos_LOGICA import ModuloEquipos\par
+from modulos.ordenes import ModuloOrdenes  ->  from modulos.ordenes_LOGICA import ModuloOrdenes\par
+from modulos.facturacion import ModuloFacturacion  ->  from modulos.facturacion_LOGICA import ModuloFacturacion\par
+from modulos.pagos import ModuloPagos  ->  from modulos.pagos_LOGICA import ModuloPagos\par
+from modulos.repuestos import ModuloRepuestos  ->  from modulos.repuestos_LOGICA import ModuloRepuestos\par
+\par
+Archivos afectados: ordenes_LOGICA.py, facturacion_LOGICA.py, pagos_LOGICA.py, garantias_LOGICA.py, presupuestos_LOGICA.py.\par
+\par
+\line
+\par
+
+\b\fs24 7. Configuraci\'f3n (sistema_base.configuracion)\b0\fs22\par
+Atributos usados pero no definidos: directorio_base, direccion_negocio, telefono_negocio, email_negocio, dias_alerta_equipo_estancado, dias_alerta_equipo_abandonado, dias_vencimiento_presupuesto, porcentaje_recargo_transferencia, texto_presupuesto, texto_pie_remito, texto_pie_factura, texto_garantia, dias_garantia_reparacion, cuit_negocio, color_acento, ruta_logo_*, backup_automatico_habilitado, backup_dias_intervalo, backup_dias_retencion, cantidad_minima_stock_repuestos, porcentaje_minimo_anticipo.\par
+Acci\'f3n: a\'f1adir en Configuracion y en configuracion_sistema los que se usen; cargar en cargar_configuracion_bd.\par
+\par
+\line
+\par
+
+\b\fs24 8. Plan de acci\'f3n sugerido (prioridad)\b0\fs22\par
+1. Cr\'edtico - Imports: Sustituir modulos.XXX por modulos.XXX_LOGICA.\par
+2. Cr\'edtico - Equipos: Eliminar duplicado eliminar_equipo; corregir equipos_abandonados y config.\par
+3. Cr\'edtico - BD/consultas: Unificar nombres en presupuestos, \'f3rdenes, facturaci\'f3n, pagos, repuestos, garant\'edas, remitos, backups, auditor\'eda.\par
+4. Alto - Orden sin presupuesto: id_presupuesto nullable y crear_orden_manual.\par
+5. Alto - Config: Definir par\'e1metros y usar ruta_datos/ruta_backups.\par
+6. Alto - Presupuestos: crear_orden_desde_presupuesto y columnas BD.\par
+7. Medio - Reportes: base_datos.conexion.db y tablas reales.\par
+8. Medio - Facturaci\'f3n/Pagos: Decidir modelo y alinear.\par
+9. Bajo - Documentaci\'f3n y limpieza de backup_viejo.\par
+\par
+\line
+\par
+
+\b\fs24 9. Conclusi\'f3n\b0\fs22\par
+El proyecto tiene buena base (clientes terminado, equipos avanzado, ventanas coherentes), pero la capa de l\'f3gica y la BD est\'e1n desincronizadas. Recomendaci\'f3n: congelar nuevas funcionalidades hasta alinear BD + m\'f3dulos + config e imports; luego probar flujos completos y despu\'e9s mejorar clientes, equipos y documentaci\'f3n.\par
+\par
+\line
+\par
+Documento generado en el marco de la auditor\'eda t\'e9cnica del proyecto TechManager v1.0.\par
+}

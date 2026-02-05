@@ -106,9 +106,19 @@ def crear_tabla_equipos():
     """
     db.ejecutar_consulta(sql)
     
-    # Agregar columna si no existe (para bases de datos existentes)
+    # Agregar columnas si no existen (para bases de datos existentes)
     try:
         db.ejecutar_consulta("ALTER TABLE equipos ADD COLUMN fecha_ultimo_movimiento DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP")
+    except:
+        pass
+    
+    try:
+        db.ejecutar_consulta("ALTER TABLE equipos ADD COLUMN solucion_aplicada TEXT")
+    except:
+        pass
+    
+    try:
+        db.ejecutar_consulta("ALTER TABLE equipos ADD COLUMN observaciones_internas TEXT")
     except:
         pass
     

@@ -194,13 +194,14 @@ class ModuloClientes:
             return False, f"Error: {str(e)}", None
     
     @staticmethod
-    def modificar_cliente(id_cliente, nombre, telefono, direccion, email, id_usuario):
+    def modificar_cliente(id_cliente, nombre, apellido, telefono, direccion, email, id_usuario):
         """
         Modifica los datos de un cliente
         
         Args:
             id_cliente (int): ID del cliente
             nombre (str): Nuevo nombre
+            apellido (str): Nuevo apellido
             telefono (str): Nuevo teléfono
             direccion (str): Nueva dirección
             email (str): Nuevo email
@@ -211,9 +212,12 @@ class ModuloClientes:
         """
         try:
             # Validar nombre
-            es_valido, mensaje_error = validar_nombre(nombre)
-            if not es_valido:
-                return False, mensaje_error
+            if not nombre or not nombre.strip():
+                return False, "El nombre es obligatorio"
+            
+            # Validar apellido
+            if not apellido or not apellido.strip():
+                return False, "El apellido es obligatorio"
             
             # Validar teléfono
             es_valido, mensaje_error = validar_telefono(telefono)
@@ -224,7 +228,7 @@ class ModuloClientes:
             telefono_limpio = limpiar_telefono(telefono)
             
             # Validar email si fue proporcionado
-            if email:
+            if email and email.strip():
                 es_valido, mensaje_error = validar_email(email)
                 if not es_valido:
                     return False, mensaje_error
@@ -248,16 +252,23 @@ class ModuloClientes:
             # Actualizar cliente
             consulta = """
             UPDATE clientes
-            SET nombre = ?, telefono = ?, direccion = ?, email = ?
+            SET nombre = ?, apellido = ?, telefono = ?, direccion = ?, email = ?
             WHERE id_cliente = ?
             """
             
-            db.ejecutar_consulta(consulta, (nombre, telefono_limpio, direccion, email, id_cliente))
+            db.ejecutar_consulta(consulta, (
+                nombre.strip(), 
+                apellido.strip(), 
+                telefono_limpio, 
+                direccion.strip(), 
+                email.strip() if email else "", 
+                id_cliente
+            ))
             
             # Registrar cambios en auditoría
             from sistema_base.seguridad import registrar_accion_auditoria
             
-            if cliente_anterior['nombre'] != nombre:
+            if cliente_anterior['nombre'] != nombre.strip():
                 registrar_accion_auditoria(
                     id_usuario=id_usuario,
                     accion="Modificar",
@@ -265,7 +276,18 @@ class ModuloClientes:
                     id_registro=id_cliente,
                     campo_modificado="nombre",
                     valor_anterior=cliente_anterior['nombre'],
-                    valor_nuevo=nombre
+                    valor_nuevo=nombre.strip()
+                )
+            
+            if cliente_anterior.get('apellido', '') != apellido.strip():
+                registrar_accion_auditoria(
+                    id_usuario=id_usuario,
+                    accion="Modificar",
+                    modulo="Clientes",
+                    id_registro=id_cliente,
+                    campo_modificado="apellido",
+                    valor_anterior=cliente_anterior.get('apellido', ''),
+                    valor_nuevo=apellido.strip()
                 )
             
             if cliente_anterior['telefono'] != telefono_limpio:
@@ -279,7 +301,7 @@ class ModuloClientes:
                     valor_nuevo=telefono_limpio
                 )
             
-            config.guardar_log(f"Cliente ID {id_cliente} modificado por usuario ID {id_usuario}", "INFO")
+            config.guardar_log(f"Cliente ID {id_cliente} ({apellido}, {nombre}) modificado por usuario ID {id_usuario}", "INFO")
             return True, "Cliente modificado exitosamente"
             
         except Exception as e:

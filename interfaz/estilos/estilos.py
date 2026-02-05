@@ -625,3 +625,256 @@ class Estilos:
                 font-weight: 600;
             }}
         """
+    
+    # ========================================================================
+    # ESTILOS ESPECÍFICOS - MÓDULOS
+    # ========================================================================
+    
+    # --- ESPACIADOS PARA FORMULARIOS ---
+    SPACING_LABEL_CAMPO = 0      # Entre etiqueta y su campo (pegado)
+    SPACING_ENTRE_GRUPOS = 8     # Entre grupos de campos
+    SPACING_DESPUES_TITULO = 8   # Después de títulos de sección
+    
+    @staticmethod
+    def frame_seccion(color_borde):
+        """Frame para secciones con color de borde personalizado"""
+        return f"""
+            QFrame {{
+                background: white;
+                border: 2px solid {color_borde};
+                border-radius: 8px;
+                padding: 15px;
+            }}
+        """
+    
+    @staticmethod
+    def label_campo():
+        """Etiqueta de campo de formulario (sin borde, sin fondo)"""
+        return """
+            QLabel {
+                border: none;
+                background: transparent;
+                padding: 0;
+                margin: 0;
+            }
+        """
+    
+    @staticmethod
+    def label_campo_negrita():
+        """Etiqueta de campo de formulario en negrita"""
+        return """
+            QLabel {
+                border: none;
+                background: transparent;
+                font-weight: bold;
+                padding: 0;
+                margin: 0;
+            }
+        """
+    
+    @staticmethod
+    def label_campo_con_margen(margen_left=0):
+        """Etiqueta de campo con margen izquierdo"""
+        return f"""
+            QLabel {{
+                border: none;
+                background: transparent;
+                margin-left: {margen_left}px;
+                padding: 0;
+                margin-top: 0;
+                margin-right: 0;
+                margin-bottom: 0;
+            }}
+        """
+    
+    @staticmethod
+    def frame_cliente():
+        """Frame para sección de datos del cliente (gris)"""
+        return f"""
+            QFrame {{
+                background: {Estilos.COLOR_GRIS_50};
+                border: 1px solid {Estilos.COLOR_GRIS_300};
+                border-radius: 8px;
+                padding: 15px;
+            }}
+        """
+    
+    @staticmethod
+    def frame_equipo():
+        """Frame para sección de datos del equipo (azul)"""
+        return Estilos.frame_seccion(Estilos.COLOR_PRIMARIO)
+    
+    @staticmethod
+    def frame_estado():
+        """Frame para sección de estado y diagnóstico (verde)"""
+        return Estilos.frame_seccion(Estilos.COLOR_EXITO)
+    
+    @staticmethod
+    def frame_accesorios():
+        """Frame para sección de accesorios (amarillo)"""
+        return Estilos.frame_seccion(Estilos.COLOR_ADVERTENCIA)
+    
+    @staticmethod
+    def scroll_area():
+        """Área de scroll sin borde"""
+        return "QScrollArea { border: none; }"
+    
+    @staticmethod
+    def widget_sin_borde():
+        """Widget genérico sin borde"""
+        return "QWidget { border: none; }"
+    
+    @staticmethod
+    def label_info_cliente():
+        """Label con info del cliente en dialogo"""
+        return f"""
+            QLabel {{
+                font-size: {Estilos.TAMANO_NORMAL}pt;
+                font-family: '{Estilos.FUENTE_PRINCIPAL}', Arial;
+                color: {Estilos.COLOR_TEXTO};
+                padding: 8px;
+                background-color: {Estilos.COLOR_GRIS_50};
+                border-radius: 4px;
+            }}
+        """
+    
+    @staticmethod
+    def label_estado_actual():
+        """Label para mostrar estado actual del equipo"""
+        return f"""
+            font-weight: bold;
+            font-size: {Estilos.TAMANO_SUBTITULO}pt;
+        """
+    
+    # --- ESTILOS PARA MÓDULO CLIENTES ---
+    
+    @staticmethod
+    def label_info_destacada():
+        """Label con info destacada (teléfono, etc)"""
+        return """
+            font-weight: bold;
+            font-size: 14px;
+            padding: 5px 10px;
+        """
+    
+    @staticmethod
+    def label_info_normal():
+        """Label con info normal"""
+        return """
+            font-size: 13px;
+            padding: 5px 10px;
+        """
+    
+    @staticmethod
+    def combo_estado_cliente():
+        """ComboBox para estado del cliente"""
+        return f"""
+            QComboBox {{
+                padding: 8px 12px;
+                border: 2px solid {Estilos.COLOR_GRIS_300};
+                border-radius: 4px;
+                background: white;
+                font-size: {Estilos.TAMANO_NORMAL}pt;
+                min-width: 200px;
+            }}
+            QComboBox:hover {{
+                border-color: {Estilos.COLOR_PRIMARIO};
+            }}
+            QComboBox::drop-down {{
+                border: none;
+                padding-right: 10px;
+            }}
+        """
+    
+    @staticmethod
+    def campo_motivo():
+        """Campo de texto para motivo"""
+        return f"""
+            QTextEdit {{
+                padding: 8px;
+                border: 2px solid {Estilos.COLOR_GRIS_300};
+                border-radius: 4px;
+                background: white;
+                font-size: {Estilos.TAMANO_NORMAL}pt;
+                min-height: 80px;
+            }}
+            QTextEdit:focus {{
+                border-color: {Estilos.COLOR_PRIMARIO};
+            }}
+        """
+    
+    @staticmethod
+    def advertencia_incobrable():
+        """Advertencia para cliente incobrable"""
+        return f"""
+            QLabel {{
+                background-color: {Estilos.COLOR_ERROR};
+                color: white;
+                padding: 8px 12px;
+                border-radius: 4px;
+                font-weight: bold;
+                font-size: {Estilos.TAMANO_NORMAL}pt;
+            }}
+        """
+    
+    @staticmethod
+    def label_cliente_dialogo():
+        """Label con nombre del cliente en diálogo"""
+        return f"""
+            QLabel {{
+                font-size: 20pt;
+                font-weight: bold;
+                color: {Estilos.COLOR_PRIMARIO};
+                padding: 10px;
+            }}
+        """
+    
+    @staticmethod
+    def tabs_style():
+        """Estilo para pestañas (tabs)"""
+        return f"""
+            QTabWidget::pane {{
+                border: 1px solid {Estilos.COLOR_GRIS_200};
+                border-radius: 4px;
+                background: white;
+            }}
+            QTabBar::tab {{
+                background: {Estilos.COLOR_GRIS_100};
+                border: 1px solid {Estilos.COLOR_GRIS_300};
+                padding: 8px 16px;
+                margin-right: 2px;
+            }}
+            QTabBar::tab:selected {{
+                background: {Estilos.COLOR_PRIMARIO};
+                color: white;
+                font-weight: bold;
+            }}
+            QTabBar::tab:hover {{
+                background: {Estilos.COLOR_GRIS_200};
+            }}
+        """
+    
+    @staticmethod
+    def frame_info_cliente():
+        """Frame con información del cliente"""
+        return f"""
+            QFrame {{
+                background: {Estilos.COLOR_GRIS_50};
+                border: 2px solid {Estilos.COLOR_PRIMARIO};
+                border-radius: 8px;
+                padding: 15px;
+            }}
+        """
+    
+    @staticmethod
+    def label_titulo_seccion_cliente():
+        """Label título de sección en módulo clientes"""
+        return f"""
+            QLabel {{
+                font-size: 16pt;
+                font-weight: bold;
+                color: {Estilos.COLOR_TEXTO};
+                padding: 5px 0px;
+            }}
+        """
+

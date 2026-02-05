@@ -97,7 +97,7 @@ class VentanaClientes(QWidget):
     def crear_tarjetas_estadisticas(self):
         """Crea las tarjetas con estadísticas de clientes"""
         contenedor = QWidget()
-        contenedor.setStyleSheet("QWidget { border: none; }")
+        contenedor.setStyleSheet(Estilos.widget_sin_borde())
         layout = QHBoxLayout()
         layout.setSpacing(15)
         
@@ -1063,35 +1063,35 @@ class DialogoDetalleCliente(QDialog):
         # Recuadro Teléfono
         rec_tel = self.crear_recuadro_dato("Teléfono")
         self.label_telefono = QLabel()
-        self.label_telefono.setStyleSheet("font-weight: bold; font-size: 14px; padding: 5px 10px;")
+        self.label_telefono.setStyleSheet(Estilos.label_info_destacada())
         rec_tel.layout().addWidget(self.label_telefono)
         layout_principal.addWidget(rec_tel)
         
         # Recuadro Email
         rec_email = self.crear_recuadro_dato("Email")
         self.label_email = QLabel()
-        self.label_email.setStyleSheet("font-size: 13px; padding: 5px 10px;")
+        self.label_email.setStyleSheet(Estilos.label_info_normal())
         rec_email.layout().addWidget(self.label_email)
         layout_principal.addWidget(rec_email, 1)
         
         # Recuadro Dirección
         rec_dir = self.crear_recuadro_dato("Dirección")
         self.label_direccion = QLabel()
-        self.label_direccion.setStyleSheet("font-size: 13px; padding: 5px 10px;")
+        self.label_direccion.setStyleSheet(Estilos.label_info_normal())
         rec_dir.layout().addWidget(self.label_direccion)
         layout_principal.addWidget(rec_dir, 1)
         
         # Recuadro Estado
         rec_estado = self.crear_recuadro_dato("Estado")
         self.label_estado = QLabel()
-        self.label_estado.setStyleSheet("font-size: 13px; padding: 5px 10px;")
+        self.label_estado.setStyleSheet(Estilos.label_info_normal())
         rec_estado.layout().addWidget(self.label_estado)
         layout_principal.addWidget(rec_estado)
         
         # Recuadro Deuda
         rec_deuda = self.crear_recuadro_dato("Deuda Total")
         self.label_deuda = QLabel()
-        self.label_deuda.setStyleSheet("font-size: 13px; padding: 5px 10px;")
+        self.label_deuda.setStyleSheet(Estilos.label_info_normal())
         rec_deuda.layout().addWidget(self.label_deuda)
         layout_principal.addWidget(rec_deuda)
         

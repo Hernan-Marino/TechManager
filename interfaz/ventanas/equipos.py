@@ -83,8 +83,9 @@ class VentanaEquipos(QWidget):
         self.campo_busqueda.textChanged.connect(self.buscar_equipos)
         layout.addWidget(self.campo_busqueda, 1)
         
-        # Filtro por estado
+        # Filtro por estado (por defecto: solo equipos en taller, sin entregados)
         self.combo_estado = ListaDesplegable()
+        self.combo_estado.addItem("En taller (pendientes de entrega)", ModuloEquipos.FILTRO_EN_TALLER)
         self.combo_estado.addItem("Todos los estados", "")
         for estado in ModuloEquipos.ESTADOS_EQUIPOS:
             self.combo_estado.addItem(estado, estado)
@@ -217,7 +218,7 @@ class VentanaEquipos(QWidget):
     def crear_tabla_equipos(self):
         """Crea la tabla de equipos"""
         tabla = QTableWidget()
-        tabla.setColumnCount(9)
+        tabla.setColumnCount(8)
         tabla.setHorizontalHeaderLabels([
             "ID", "Cliente", "Tipo", "Marca", "Modelo", "Estado", 
             "Días", "Ingreso"
@@ -265,18 +266,21 @@ class VentanaEquipos(QWidget):
             filtro_estado = self.combo_estado.currentData()
             filtro_tipo = self.combo_tipo.currentData()
             
-            # Obtener equipos
+            # Obtener equipos ("En taller" excluye entregados; "Entregado" los muestra)
             equipos = ModuloEquipos.listar_equipos(
                 filtro_estado=filtro_estado,
                 filtro_tipo=filtro_tipo,
                 busqueda=busqueda
             )
             
+            # Se obtuvieron equipos
+            
             # Limpiar tabla
             self.tabla.setRowCount(0)
             
             # Llenar tabla
             for equipo in equipos:
+                # Procesando equipo
                 fila = self.tabla.rowCount()
                 self.tabla.insertRow(fila)
                 
@@ -345,6 +349,9 @@ class VentanaEquipos(QWidget):
                 self.tabla.setItem(fila, 7, QTableWidgetItem(fecha_formateada))
             
         except Exception as e:
+            import traceback
+            error_completo = traceback.format_exc()
+            print(f"DEBUG ERROR: {error_completo}")  # DEBUG
             config.guardar_log(f"Error al cargar equipos: {e}", "ERROR")
             Mensaje.error("Error", f"Error al cargar equipos: {str(e)}", self)
     
@@ -875,18 +882,23 @@ class DialogoCambiarEstado(QDialog):
             self.boton_cambiar.setText("Cambiar Estado")
 
 
+
+
+# FRAGMENTO PARA REEMPLAZAR EN equipos.py - DialogoDetalleEquipo
+
 class DialogoDetalleEquipo(QDialog):
-    """Diálogo para ver el detalle completo de un equipo"""
+    """Diálogo para ver/editar el detalle completo de un equipo"""
     
     def __init__(self, id_equipo, parent=None):
         super().__init__(parent)
         self.id_equipo = id_equipo
         self.equipo = None
+        self.cliente = None
         self.inicializar_ui()
         self.cargar_datos()
     
     def inicializar_ui(self):
-        """Inicializa la interfaz"""
+        """Inicializa la interfaz del diálogo"""
         self.setWindowTitle("Detalle del Equipo")
         self.setMinimumSize(900, 700)
         self.setModal(True)
@@ -895,11 +907,11 @@ class DialogoDetalleEquipo(QDialog):
         layout.setSpacing(15)
         layout.setContentsMargins(20, 20, 20, 20)
         
-        # Título
+        # Título con nombre del cliente
         self.label_titulo = Etiqueta("", "titulo")
         layout.addWidget(self.label_titulo)
         
-        # Datos principales
+        # Datos principales del equipo (en recuadros horizontales)
         self.frame_datos = self.crear_frame_datos()
         layout.addWidget(self.frame_datos)
         
@@ -925,50 +937,30 @@ class DialogoDetalleEquipo(QDialog):
             }
         """)
         
-        # Pestaña Timeline
-        self.widget_timeline = self.crear_tab_timeline()
-        tabs.addTab(self.widget_timeline, "📝 Timeline")
+        # Pestaña Datos del Equipo
+        self.widget_equipo = self.crear_tab_equipo()
+        tabs.addTab(self.widget_equipo, "📱 Datos del Equipo")
         
-        # Pestaña Presupuestos
-        self.widget_presupuestos = self.crear_tab_presupuestos()
-        tabs.addTab(self.widget_presupuestos, "💰 Presupuestos")
-        
-        # Pestaña Órdenes
-        self.widget_ordenes = self.crear_tab_ordenes()
-        tabs.addTab(self.widget_ordenes, "🔧 Órdenes de Trabajo")
+        # Pestaña Estado y Diagnóstico
+        self.widget_estado = self.crear_tab_estado()
+        tabs.addTab(self.widget_estado, "🔧 Estado y Diagnóstico")
         
         layout.addWidget(tabs, 1)
         
-        # Botones de acciones
+        # Botones de acción
         layout_botones = QHBoxLayout()
-        layout_botones.setSpacing(10)
         
-        # Botón Editar Equipo
-        boton_editar = Boton("✏️ Editar Equipo", "primario")
-        boton_editar.clicked.connect(self.editar_equipo)
-        layout_botones.addWidget(boton_editar)
+        boton_guardar = Boton("💾 Guardar Cambios", "exito")
+        boton_guardar.clicked.connect(self.guardar_cambios)
+        layout_botones.addWidget(boton_guardar)
         
-        # Botón Cambiar Estado
-        boton_cambiar_estado = Boton("🔄 Cambiar Estado", "secundario")
-        boton_cambiar_estado.clicked.connect(self.cambiar_estado)
-        layout_botones.addWidget(boton_cambiar_estado)
-        
-        # Botón Ver Remito
-        boton_remito = Boton("📋 Ver Remito", "neutro")
-        boton_remito.clicked.connect(self.ver_remito)
-        layout_botones.addWidget(boton_remito)
-        
-        # Botón Eliminar (solo admin)
-        from sistema_base.seguridad import obtener_usuario_actual
-        usuario_actual = obtener_usuario_actual()
-        if usuario_actual and usuario_actual['rol'] == 'admin':
+        if config.es_admin:
             boton_eliminar = Boton("🗑️ Eliminar Equipo", "peligro")
             boton_eliminar.clicked.connect(self.eliminar_equipo)
             layout_botones.addWidget(boton_eliminar)
         
         layout_botones.addStretch()
         
-        # Botón Cerrar
         boton_cerrar = Boton("Cerrar", "neutro")
         boton_cerrar.clicked.connect(self.accept)
         layout_botones.addWidget(boton_cerrar)
@@ -978,128 +970,248 @@ class DialogoDetalleEquipo(QDialog):
         self.setLayout(layout)
     
     def crear_frame_datos(self):
-        """Crea el frame con datos principales"""
+        """Crea el frame con los datos principales del equipo"""
+        # Layout horizontal para todos los recuadros
+        layout_principal = QHBoxLayout()
+        layout_principal.setSpacing(0)
+        layout_principal.setContentsMargins(0, 0, 0, 0)
+        
+        # Recuadro Tipo
+        rec_tipo = self.crear_recuadro_dato("Tipo")
+        self.label_tipo = QLabel()
+        self.label_tipo.setStyleSheet("font-weight: bold; font-size: 14px; padding: 5px 10px;")
+        rec_tipo.layout().addWidget(self.label_tipo)
+        layout_principal.addWidget(rec_tipo)
+        
+        # Recuadro Marca
+        rec_marca = self.crear_recuadro_dato("Marca")
+        self.label_marca = QLabel()
+        self.label_marca.setStyleSheet("font-size: 13px; padding: 5px 10px;")
+        rec_marca.layout().addWidget(self.label_marca)
+        layout_principal.addWidget(rec_marca, 1)
+        
+        # Recuadro Modelo
+        rec_modelo = self.crear_recuadro_dato("Modelo")
+        self.label_modelo = QLabel()
+        self.label_modelo.setStyleSheet("font-size: 13px; padding: 5px 10px;")
+        rec_modelo.layout().addWidget(self.label_modelo)
+        layout_principal.addWidget(rec_modelo, 1)
+        
+        # Recuadro Estado
+        rec_estado = self.crear_recuadro_dato("Estado")
+        self.label_estado_visual = QLabel()
+        self.label_estado_visual.setStyleSheet("font-size: 13px; padding: 5px 10px;")
+        rec_estado.layout().addWidget(self.label_estado_visual)
+        layout_principal.addWidget(rec_estado)
+        
+        # Recuadro Fecha Ingreso
+        rec_fecha = self.crear_recuadro_dato("Fecha Ingreso")
+        self.label_fecha = QLabel()
+        self.label_fecha.setStyleSheet("font-size: 13px; padding: 5px 10px;")
+        rec_fecha.layout().addWidget(self.label_fecha)
+        layout_principal.addWidget(rec_fecha)
+        
+        # Crear widget contenedor
+        widget = QWidget()
+        widget.setLayout(layout_principal)
+        return widget
+    
+    def crear_recuadro_dato(self, titulo):
+        """Crea un recuadro con título y valor"""
         frame = QFrame()
         frame.setStyleSheet("""
             QFrame {
                 background-color: white;
                 border: 1px solid #dee2e6;
-                border-radius: 8px;
-                padding: 15px;
+                border-radius: 0px;
             }
         """)
         
         layout = QVBoxLayout()
+        layout.setSpacing(0)
+        layout.setContentsMargins(0, 0, 0, 0)
         
-        from PyQt5.QtWidgets import QGridLayout
-        grid = QGridLayout()
-        grid.setSpacing(10)
-        
-        # Fila 1
-        grid.addWidget(QLabel("<b>Cliente:</b>"), 0, 0)
-        self.label_cliente = QLabel()
-        grid.addWidget(self.label_cliente, 0, 1)
-        
-        grid.addWidget(QLabel("<b>Teléfono:</b>"), 0, 2)
-        self.label_telefono = QLabel()
-        grid.addWidget(self.label_telefono, 0, 3)
-        
-        # Fila 2
-        grid.addWidget(QLabel("<b>Identificador:</b>"), 1, 0)
-        self.label_identificador = QLabel()
-        grid.addWidget(self.label_identificador, 1, 1)
-        
-        grid.addWidget(QLabel("<b>Color:</b>"), 1, 2)
-        self.label_color = QLabel()
-        grid.addWidget(self.label_color, 1, 3)
-        
-        # Fila 3
-        grid.addWidget(QLabel("<b>Estado:</b>"), 2, 0)
-        self.label_estado = QLabel()
-        grid.addWidget(self.label_estado, 2, 1)
-        
-        grid.addWidget(QLabel("<b>Días sin mov.:</b>"), 2, 2)
-        self.label_dias = QLabel()
-        grid.addWidget(self.label_dias, 2, 3)
-        
-        # Fila 4
-        grid.addWidget(QLabel("<b>Falla:</b>"), 3, 0)
-        self.label_falla = QLabel()
-        self.label_falla.setWordWrap(True)
-        grid.addWidget(self.label_falla, 3, 1, 1, 3)
-        
-        layout.addLayout(grid)
+        # Título
+        label_titulo = QLabel(titulo)
+        label_titulo.setStyleSheet("""
+            background-color: #f8f9fa;
+            color: #495057;
+            font-size: 11px;
+            font-weight: bold;
+            padding: 5px 10px;
+            border-bottom: 1px solid #dee2e6;
+        """)
+        layout.addWidget(label_titulo)
         
         frame.setLayout(layout)
         return frame
     
-    def crear_tab_timeline(self):
-        """Crea la pestaña de timeline"""
+    def crear_tab_equipo(self):
+        """Crea la pestaña con datos del equipo"""
         widget = QWidget()
         layout = QVBoxLayout()
-        layout.setContentsMargins(10, 10, 10, 10)
-        layout.setSpacing(10)
+        layout.setContentsMargins(15, 15, 15, 15)
+        layout.setSpacing(15)
         
-        # Agregar nota
-        layout_agregar = QHBoxLayout()
-        
-        self.campo_nueva_nota = CampoTexto("Escribe una nota...")
-        layout_agregar.addWidget(self.campo_nueva_nota, 1)
-        
-        boton_agregar = Boton("➕ Agregar", "exito")
-        boton_agregar.clicked.connect(self.agregar_nota)
-        layout_agregar.addWidget(boton_agregar)
-        
-        layout.addLayout(layout_agregar)
-        
-        # Scroll de notas
+        # Scroll area
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setStyleSheet("""
-            QScrollArea {
-                border: 1px solid #dee2e6;
-                border-radius: 5px;
-                background-color: #f8f9fa;
-            }
-        """)
+        scroll.setStyleSheet("QScrollArea { border: none; }")
         
-        self.widget_notas = QWidget()
-        self.layout_notas = QVBoxLayout()
-        self.layout_notas.setSpacing(10)
-        self.layout_notas.setAlignment(Qt.AlignTop)
-        self.widget_notas.setLayout(self.layout_notas)
+        container = QWidget()
+        layout_scroll = QVBoxLayout()
+        layout_scroll.setSpacing(15)
         
-        scroll.setWidget(self.widget_notas)
-        layout.addWidget(scroll, 1)
+        # Sección: Datos del Equipo
+        layout_scroll.addWidget(Etiqueta("📱 DATOS DEL EQUIPO", "subtitulo"))
         
+        # Tipo y Marca en horizontal
+        h1 = QHBoxLayout()
+        h1.setSpacing(10)
+        
+        # Tipo
+        v_tipo = QVBoxLayout()
+        v_tipo.setSpacing(2)
+        v_tipo.addWidget(QLabel("Tipo de Dispositivo:"))
+        self.combo_tipo = ListaDesplegable()
+        self.combo_tipo.addItem("Celular", "Celular")
+        self.combo_tipo.addItem("Tablet", "Tablet")
+        self.combo_tipo.addItem("Notebook", "Notebook")
+        self.combo_tipo.addItem("PC", "PC")
+        self.combo_tipo.addItem("Consola", "Consola")
+        self.combo_tipo.addItem("Otro", "Otro")
+        v_tipo.addWidget(self.combo_tipo)
+        h1.addLayout(v_tipo, 1)
+        
+        # Marca
+        v_marca = QVBoxLayout()
+        v_marca.setSpacing(2)
+        v_marca.addWidget(QLabel("Marca:"))
+        self.campo_marca = CampoTexto()
+        v_marca.addWidget(self.campo_marca)
+        h1.addLayout(v_marca, 1)
+        
+        layout_scroll.addLayout(h1)
+        
+        # Modelo e Identificador
+        h2 = QHBoxLayout()
+        h2.setSpacing(10)
+        
+        # Modelo
+        v_modelo = QVBoxLayout()
+        v_modelo.setSpacing(2)
+        v_modelo.addWidget(QLabel("Modelo:"))
+        self.campo_modelo = CampoTexto()
+        v_modelo.addWidget(self.campo_modelo)
+        h2.addLayout(v_modelo, 1)
+        
+        # Identificador
+        v_id = QVBoxLayout()
+        v_id.setSpacing(2)
+        v_id.addWidget(QLabel("IMEI/Serie:"))
+        self.campo_identificador = CampoTexto()
+        v_id.addWidget(self.campo_identificador)
+        h2.addLayout(v_id, 1)
+        
+        layout_scroll.addLayout(h2)
+        
+        # Color
+        v_color = QVBoxLayout()
+        v_color.setSpacing(2)
+        v_color.addWidget(QLabel("Color:"))
+        self.campo_color = CampoTexto()
+        v_color.addWidget(self.campo_color)
+        layout_scroll.addLayout(v_color)
+        
+        # Accesorios (label e input juntos para que no quede título espaciado del input)
+        layout_scroll.addWidget(Etiqueta("📦 ACCESORIOS", "subtitulo"))
+        v_accesorios = QVBoxLayout()
+        v_accesorios.setSpacing(2)
+        v_accesorios.addWidget(QLabel("Accesorios Entregados:"))
+        self.campo_accesorios = CampoTextoMultilinea()
+        self.campo_accesorios.setMinimumHeight(52)
+        self.campo_accesorios.setMaximumHeight(65)
+        v_accesorios.addWidget(self.campo_accesorios)
+        layout_scroll.addLayout(v_accesorios)
+        
+        container.setLayout(layout_scroll)
+        scroll.setWidget(container)
+        
+        layout.addWidget(scroll)
         widget.setLayout(layout)
         return widget
     
-    def crear_tab_presupuestos(self):
-        """Crea la pestaña de presupuestos"""
+    def crear_tab_estado(self):
+        """Crea la pestaña de estado y diagnóstico"""
         widget = QWidget()
         layout = QVBoxLayout()
-        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setContentsMargins(15, 15, 15, 15)
+        layout.setSpacing(15)
         
-        self.label_presupuestos = QLabel("Funcionalidad próximamente")
-        self.label_presupuestos.setAlignment(Qt.AlignCenter)
-        self.label_presupuestos.setStyleSheet("color: #6c757d; padding: 20px;")
-        layout.addWidget(self.label_presupuestos)
+        # Scroll area
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setStyleSheet("QScrollArea { border: none; }")
         
-        widget.setLayout(layout)
-        return widget
-    
-    def crear_tab_ordenes(self):
-        """Crea la pestaña de órdenes"""
-        widget = QWidget()
-        layout = QVBoxLayout()
-        layout.setContentsMargins(10, 10, 10, 10)
+        container = QWidget()
+        layout_scroll = QVBoxLayout()
+        layout_scroll.setSpacing(2)  # Poco espacio entre label e input para que no se crucen
         
-        self.label_ordenes = QLabel("Funcionalidad próximamente")
-        self.label_ordenes.setAlignment(Qt.AlignCenter)
-        self.label_ordenes.setStyleSheet("color: #6c757d; padding: 20px;")
-        layout.addWidget(self.label_ordenes)
+        # Estado Actual
+        layout_scroll.addWidget(QLabel("Estado Actual:"))
+        self.combo_estado = ListaDesplegable()
+        self.combo_estado.addItem("En revisión", "En revisión")
+        self.combo_estado.addItem("Esperando presupuesto", "Esperando presupuesto")
+        self.combo_estado.addItem("Presupuesto aprobado", "Presupuesto aprobado")
+        self.combo_estado.addItem("En reparación", "En reparación")
+        self.combo_estado.addItem("Listo", "Listo")
+        self.combo_estado.addItem("Entregado", "Entregado")
+        self.combo_estado.addItem("Sin reparación", "Sin reparación")
+        self.combo_estado.addItem("Abandonado", "Abandonado")
+        layout_scroll.addWidget(self.combo_estado)
         
+        layout_scroll.addSpacing(6)
+        
+        # Falla Declarada (altura doble para más espacio de texto)
+        layout_scroll.addWidget(QLabel("Falla Declarada:"))
+        self.campo_falla = CampoTextoMultilinea()
+        self.campo_falla.setMinimumHeight(104)
+        self.campo_falla.setMaximumHeight(130)
+        layout_scroll.addWidget(self.campo_falla)
+        
+        layout_scroll.addSpacing(6)
+        
+        # Diagnóstico Técnico
+        layout_scroll.addWidget(QLabel("Diagnóstico Técnico:"))
+        self.campo_diagnostico = CampoTextoMultilinea()
+        self.campo_diagnostico.setMinimumHeight(104)
+        self.campo_diagnostico.setMaximumHeight(130)
+        layout_scroll.addWidget(self.campo_diagnostico)
+        
+        layout_scroll.addSpacing(6)
+        
+        # Solución Aplicada
+        layout_scroll.addWidget(QLabel("Solución Aplicada:"))
+        self.campo_solucion = CampoTextoMultilinea()
+        self.campo_solucion.setMinimumHeight(104)
+        self.campo_solucion.setMaximumHeight(130)
+        layout_scroll.addWidget(self.campo_solucion)
+        
+        layout_scroll.addSpacing(6)
+        
+        # Observaciones Internas
+        layout_scroll.addWidget(QLabel("Observaciones Internas:"))
+        self.campo_observaciones = CampoTextoMultilinea()
+        self.campo_observaciones.setMinimumHeight(104)
+        self.campo_observaciones.setMaximumHeight(130)
+        layout_scroll.addWidget(self.campo_observaciones)
+        
+        layout_scroll.addStretch()
+        
+        container.setLayout(layout_scroll)
+        scroll.setWidget(container)
+        
+        layout.addWidget(scroll)
         widget.setLayout(layout)
         return widget
     
@@ -1108,169 +1220,103 @@ class DialogoDetalleEquipo(QDialog):
         self.equipo = ModuloEquipos.obtener_equipo_por_id(self.id_equipo)
         
         if not self.equipo:
+            Mensaje.error("No se pudo cargar el equipo", self)
+            self.reject()
             return
+        
+        # Cargar cliente
+        self.cliente = ModuloClientes.obtener_cliente_por_id(self.equipo['id_cliente'])
         
         # Título
-        self.label_titulo.setText(
-            f"{self.equipo['tipo_dispositivo']} {self.equipo['marca']} {self.equipo['modelo']}"
+        cliente_nombre = f"{self.cliente['apellido']}, {self.cliente['nombre']}" if self.cliente else "Cliente desconocido"
+        self.label_titulo.setText(cliente_nombre)
+        
+        # Datos visuales
+        self.label_tipo.setText(self.equipo.get('tipo_dispositivo', '-'))
+        self.label_marca.setText(self.equipo.get('marca', '-'))
+        self.label_modelo.setText(self.equipo.get('modelo', '-'))
+        self.label_estado_visual.setText(self.equipo.get('estado_actual', '-'))
+        
+        fecha_ingreso = self.equipo.get('fecha_ingreso')
+        if fecha_ingreso:
+            from datetime import datetime
+            if isinstance(fecha_ingreso, str):
+                fecha_obj = datetime.fromisoformat(fecha_ingreso.replace('Z', '+00:00'))
+            else:
+                fecha_obj = fecha_ingreso
+            self.label_fecha.setText(fecha_obj.strftime('%d/%m/%Y'))
+        else:
+            self.label_fecha.setText('-')
+        
+        # Campos editables
+        self.combo_tipo.setCurrentText(self.equipo.get('tipo_dispositivo', ''))
+        self.campo_marca.setText(self.equipo.get('marca', ''))
+        self.campo_modelo.setText(self.equipo.get('modelo', ''))
+        self.campo_identificador.setText(self.equipo.get('identificador', ''))
+        self.campo_color.setText(self.equipo.get('color', ''))
+        self.campo_accesorios.setPlainText(self.equipo.get('accesorios', ''))
+        
+        self.combo_estado.setCurrentText(self.equipo.get('estado_actual', 'En revisión'))
+        self.campo_falla.setPlainText(self.equipo.get('falla_declarada', ''))
+        self.campo_diagnostico.setPlainText(self.equipo.get('diagnostico_tecnico', ''))
+        self.campo_solucion.setPlainText(self.equipo.get('solucion_aplicada', ''))
+        self.campo_observaciones.setPlainText(self.equipo.get('observaciones_internas', ''))
+    
+    def guardar_cambios(self):
+        """Guarda los cambios del equipo"""
+        # Recopilar datos
+        datos = {
+            'tipo_dispositivo': self.combo_tipo.currentText(),
+            'marca': self.campo_marca.text().strip(),
+            'modelo': self.campo_modelo.text().strip(),
+            'identificador': self.campo_identificador.text().strip(),
+            'color': self.campo_color.text().strip(),
+            'estado_actual': self.combo_estado.currentText(),
+            'falla_declarada': self.campo_falla.toPlainText().strip(),
+            'diagnostico': self.campo_diagnostico.toPlainText().strip(),
+            'solucion': self.campo_solucion.toPlainText().strip(),
+            'accesorios': self.campo_accesorios.toPlainText().strip(),
+            'observaciones_internas': self.campo_observaciones.toPlainText().strip()
+        }
+        
+        # Obtener usuario actual
+        from sistema_base.seguridad import obtener_usuario_actual
+        usuario_actual = obtener_usuario_actual()
+        id_usuario = usuario_actual['id_usuario'] if usuario_actual else 1
+        
+        # Guardar
+        exito, mensaje = ModuloEquipos.modificar_equipo(
+            self.id_equipo,
+            datos,
+            id_usuario
         )
         
-        # Datos
-        self.label_cliente.setText(self.equipo['cliente_nombre'])
-        self.label_telefono.setText(self.equipo['cliente_telefono'])
-        self.label_identificador.setText(self.equipo['identificador'] if self.equipo['identificador'] else "-")
-        self.label_color.setText(self.equipo['color'] if self.equipo['color'] else "-")
-        self.label_estado.setText(f"<b>{self.equipo['estado_actual']}</b>")
-        
-        dias = self.equipo['dias_sin_movimiento']
-        if dias >= config.dias_alerta_equipo_abandonado:
-            self.label_dias.setText(f"<span style='color: #dc3545;'><b>🚨 {dias} días</b></span>")
-        elif dias >= config.dias_alerta_equipo_estancado:
-            self.label_dias.setText(f"<span style='color: #ffc107;'><b>⚠️ {dias} días</b></span>")
+        if exito:
+            Mensaje.exito("Cambios guardados", mensaje, self)
+            self.accept()
         else:
-            self.label_dias.setText(f"{dias} días")
-        
-        self.label_falla.setText(self.equipo['falla_declarada'])
-        
-        # Timeline
-        self.cargar_timeline()
+            Mensaje.error("Error", mensaje, self)
     
-    def cargar_timeline(self):
-        """Carga el timeline de notas"""
-        # Limpiar
-        while self.layout_notas.count():
-            item = self.layout_notas.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+    def eliminar_equipo(self):
+        """Elimina el equipo"""
+        confirmacion = Mensaje.confirmacion(
+            "Confirmar Eliminación",
+            f"¿Está seguro que desea eliminar este equipo?\n\nEsta acción no se puede deshacer.",
+            self
+        )
         
-        # Obtener notas
-        notas = ModuloEquipos.obtener_notas_equipo(self.id_equipo)
-        
-        if not notas:
-            label = QLabel("No hay notas registradas")
-            label.setStyleSheet("color: #6c757d; padding: 20px;")
-            label.setAlignment(Qt.AlignCenter)
-            self.layout_notas.addWidget(label)
-            return
-        
-        # Agregar notas
-        for nota in notas:
-            widget_nota = self.crear_widget_nota(nota)
-            self.layout_notas.addWidget(widget_nota)
-    
-    def crear_widget_nota(self, nota):
-        """Crea widget de una nota"""
-        frame = QFrame()
-        frame.setStyleSheet("""
-            QFrame {
-                background-color: white;
-                border-left: 4px solid #2563eb;
-                border-radius: 5px;
-                padding: 10px;
-            }
-        """)
-        
-        layout = QVBoxLayout()
-        layout.setSpacing(5)
-        
-        # Header
-        layout_header = QHBoxLayout()
-        
-        label_usuario = QLabel(f"<b>{nota['usuario_nombre']}</b>")
-        label_usuario.setStyleSheet("color: #2563eb;")
-        layout_header.addWidget(label_usuario)
-        
-        layout_header.addStretch()
-        
-        # Fecha
-        fecha_str = nota['fecha_hora']
-        if isinstance(fecha_str, str):
-            try:
-                from datetime import datetime
-                fecha = datetime.fromisoformat(fecha_str.replace('Z', '+00:00'))
-                fecha_formateada = fecha.strftime('%d/%m/%Y %H:%M')
-            except:
-                fecha_formateada = fecha_str
-        else:
-            fecha_formateada = str(fecha_str)
-        
-        label_fecha = QLabel(fecha_formateada)
-        label_fecha.setStyleSheet("color: #6c757d; font-size: 9pt;")
-        layout_header.addWidget(label_fecha)
-        
-        layout.addLayout(layout_header)
-        
-        # Nota
-        label_nota = QLabel(nota['nota'])
-        label_nota.setWordWrap(True)
-        label_nota.setStyleSheet("color: #212529; padding: 5px 0;")
-        layout.addWidget(label_nota)
-        
-        frame.setLayout(layout)
-        return frame
-    
-    def agregar_nota(self):
-        """Agrega una nota"""
-        nota_texto = self.campo_nueva_nota.text().strip()
-        
-        if not nota_texto:
+        if not confirmacion:
             return
         
         from sistema_base.seguridad import obtener_usuario_actual
         usuario_actual = obtener_usuario_actual()
+        id_usuario = usuario_actual['id_usuario'] if usuario_actual else 1
         
-        exito, mensaje = ModuloEquipos.agregar_nota_equipo(
-            self.id_equipo,
-            nota_texto,
-            usuario_actual['id_usuario']
-        )
+        exito, mensaje = ModuloEquipos.eliminar_equipo(self.id_equipo, id_usuario)
         
         if exito:
-            self.campo_nueva_nota.clear()
-            self.cargar_timeline()
-    
-    def editar_equipo(self):
-        """Abre diálogo para editar equipo"""
-        Mensaje.informacion("Funcionalidad", "Editar equipo - Próximamente", self)
-    
-    def cambiar_estado(self):
-        """Abre diálogo para cambiar estado"""
-        dialogo = DialogoCambiarEstado(self.id_equipo, self)
-        if dialogo.exec_() == QDialog.Accepted:
-            self.cargar_datos()
-    
-    def ver_remito(self):
-        """Abre ventana de remito"""
-        Mensaje.informacion("Funcionalidad", "Ver remito - Próximamente", self)
-    
-    def eliminar_equipo(self):
-        """Elimina el equipo"""
-        from PyQt5.QtWidgets import QMessageBox
-        
-        # Confirmación
-        msg = QMessageBox(self)
-        msg.setWindowTitle("Confirmar Eliminación")
-        msg.setText("¿Estás seguro de eliminar este equipo?")
-        msg.setInformativeText("El equipo será desactivado y no se mostrará en la lista.\nNo se puede eliminar si tiene presupuestos u órdenes activas.")
-        msg.setIcon(QMessageBox.Warning)
-        
-        boton_si = msg.addButton("Sí", QMessageBox.YesRole)
-        boton_no = msg.addButton("No", QMessageBox.NoRole)
-        msg.setDefaultButton(boton_no)
-        
-        msg.exec_()
-        
-        if msg.clickedButton() == boton_si:
-            from sistema_base.seguridad import obtener_usuario_actual
-            usuario_actual = obtener_usuario_actual()
-            
-            exito, mensaje = ModuloEquipos.eliminar_equipo(
-                self.id_equipo,
-                usuario_actual['id_usuario']
-            )
-            
-            if exito:
-                Mensaje.exito("Éxito", mensaje, self)
-                self.accept()  # Cerrar ventana
-            else:
-                Mensaje.error("Error", mensaje, self)
+            Mensaje.exito("Equipo eliminado", mensaje, self)
+            self.accept()
+        else:
+            Mensaje.error("Error", mensaje, self)
+

@@ -36,17 +36,22 @@ class ModuloEquipos:
         "Abandonado"
     ]
     
+    # Valor especial para el filtro "solo equipos en taller (sin entregados)"
+    FILTRO_EN_TALLER = "__en_taller__"
+
     @staticmethod
-    def listar_equipos(filtro_estado="", filtro_tipo="", filtro_cliente="", busqueda="", orden="fecha_desc"):
+    def listar_equipos(filtro_estado="", filtro_tipo="", filtro_cliente="", busqueda="", orden="fecha_desc",
+                       excluir_entregados=False):
         """
-        Lista todos los equipos
+        Lista equipos (por defecto solo activos).
         
         Args:
-            filtro_estado (str): Filtrar por estado específico
+            filtro_estado (str): Filtrar por estado; FILTRO_EN_TALLER = solo no entregados
             filtro_tipo (str): Filtrar por tipo de dispositivo
             filtro_cliente (str): Filtrar por ID de cliente
             busqueda (str): Buscar en marca, modelo, identificador
             orden (str): fecha_desc, fecha_asc, cliente
+            excluir_entregados (bool): Si True, no muestra equipos con estado 'Entregado'
             
         Returns:
             list: Lista de equipos con datos del cliente
@@ -56,7 +61,7 @@ class ModuloEquipos:
             SELECT 
                 e.id_equipo,
                 e.id_cliente,
-                c.nombre as cliente_nombre,
+                (c.apellido || ', ' || c.nombre) as cliente_nombre,
                 c.tiene_incobrables,
                 e.tipo_dispositivo,
                 e.marca,
@@ -73,8 +78,10 @@ class ModuloEquipos:
             
             parametros = []
             
-            # Filtros
-            if filtro_estado:
+            # Filtro "en taller" (excluye entregados) o por estado concreto
+            if filtro_estado == ModuloEquipos.FILTRO_EN_TALLER or excluir_entregados:
+                consulta += " AND e.estado_actual != 'Entregado'"
+            elif filtro_estado and filtro_estado != ModuloEquipos.FILTRO_EN_TALLER:
                 consulta += " AND e.estado_actual = ?"
                 parametros.append(filtro_estado)
             
@@ -112,9 +119,12 @@ class ModuloEquipos:
                     equipo['fecha_ultimo_movimiento']
                 )
                 
-                # Marcar si necesita alerta
-                equipo['alerta_estancado'] = equipo['dias_sin_movimiento'] >= config.dias_alerta_equipo_estancado
-                equipo['alerta_abandonado'] = equipo['dias_sin_movimiento'] >= config.dias_alerta_equipo_abandonado
+                # Marcar si necesita alerta (con valores por defecto)
+                dias_alerta_estancado = getattr(config, 'dias_alerta_equipo_estancado', 2)  # 2 días por defecto
+                dias_alerta_abandonado = getattr(config, 'dias_alerta_equipo_abandonado', 90)  # 90 días por defecto
+                
+                equipo['alerta_estancado'] = equipo['dias_sin_movimiento'] >= dias_alerta_estancado
+                equipo['alerta_abandonado'] = equipo['dias_sin_movimiento'] >= dias_alerta_abandonado
             
             return equipos
             
@@ -355,21 +365,21 @@ class ModuloEquipos:
             if not exito:
                 return False, mensaje
             
-            # Registrar en tabla de abandonados
+            # Registrar en tabla de abandonados (columnas según crear_tablas: estado_equipo, registrado_por)
             consulta = """
             INSERT INTO equipos_abandonados (
-                id_equipo, fecha_abandono, estado_al_abandonar,
-                falla_original, partes_recuperables, condicion_fisica,
-                id_usuario_registra, notas
+                id_equipo, id_cliente, id_orden, fecha_abandono, estado_equipo,
+                falla_original, trabajo_realizado, partes_recuperables, condicion_fisica,
+                registrado_por, notas
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """
-            
+            id_cliente = equipo.get('id_cliente')
             db.ejecutar_consulta(
                 consulta,
-                (id_equipo, datetime.now(), equipo['estado_actual'],
-                 equipo['falla_declarada'], partes_recuperables,
-                 equipo['estado_fisico'], id_usuario, observaciones)
+                (id_equipo, id_cliente, None, datetime.now(), equipo['estado_actual'],
+                 equipo['falla_declarada'], None, partes_recuperables,
+                 equipo.get('estado_fisico', ''), id_usuario, observaciones)
             )
             
             config.guardar_log(f"Equipo ID {id_equipo} marcado como abandonado", "WARNING")
@@ -426,7 +436,7 @@ class ModuloEquipos:
                 estadisticas[key] = resultado['total'] if resultado else 0
             
             # Equipos estancados (más de X días sin movimiento)
-            dias_alerta = config.dias_alerta_equipo_estancado
+            dias_alerta = getattr(config, 'dias_alerta_equipo_estancado', 2)
             fecha_limite = datetime.now() - timedelta(days=dias_alerta)
             
             consulta_estancados = """
@@ -532,7 +542,7 @@ class ModuloEquipos:
                 monto_sin_recargo,
                 recargo_transferencia,
                 monto_total,
-                estado_presupuesto,
+                estado as estado_presupuesto,
                 fecha_creacion,
                 fecha_vencimiento
             FROM presupuestos
@@ -562,12 +572,12 @@ class ModuloEquipos:
             SELECT 
                 o.id_orden,
                 o.descripcion_reparacion,
-                o.estado_orden,
+                o.estado as estado_orden,
                 o.fecha_inicio,
                 o.fecha_finalizacion,
                 u.nombre as tecnico_nombre
             FROM ordenes_trabajo o
-            LEFT JOIN usuarios u ON o.id_tecnico_asignado = u.id_usuario
+            LEFT JOIN usuarios u ON o.id_tecnico = u.id_usuario
             WHERE o.id_equipo = ?
             ORDER BY o.fecha_inicio DESC
             """
@@ -594,7 +604,7 @@ class ModuloEquipos:
             }
             
             # Equipos estancados (más de X días sin movimiento)
-            dias_estancado = config.dias_alerta_equipo_estancado
+            dias_estancado = getattr(config, 'dias_alerta_equipo_estancado', 2)
             fecha_limite_estancado = datetime.now() - timedelta(days=dias_estancado)
             
             consulta_estancados = """
@@ -608,7 +618,7 @@ class ModuloEquipos:
             resumen['estancados'] = len(equipos_estancados)
             
             # Equipos abandonados (más de X días sin retirar)
-            dias_abandonado = config.dias_alerta_equipo_abandonado
+            dias_abandonado = getattr(config, 'dias_alerta_equipo_abandonado', 90)
             fecha_limite_abandonado = datetime.now() - timedelta(days=dias_abandonado)
             
             consulta_abandonados = """
@@ -620,15 +630,19 @@ class ModuloEquipos:
             
             equipos_abandonados = db.obtener_todos(consulta_abandonados, (fecha_limite_abandonado,))
             
-            # Marcar automáticamente como abandonados
+            # Marcar automáticamente como abandonados (solo si está "Listo" o "Sin reparación")
+            id_usuario_sistema = getattr(config, 'id_usuario_actual', None)
+            if id_usuario_sistema is None:
+                # Fallback: primer usuario admin para acciones automáticas
+                r = db.obtener_uno("SELECT id_usuario FROM usuarios WHERE rol = 'admin' AND activo = 1 LIMIT 1")
+                id_usuario_sistema = r['id_usuario'] if r else 1
             for equipo in equipos_abandonados:
-                # Solo si está en estado "Listo" o "Sin reparación"
                 if equipo['estado_actual'] in ['Listo', 'Sin reparación']:
                     ModuloEquipos.marcar_como_abandonado(
                         equipo['id_equipo'],
-                        1,  # Usuario sistema
+                        id_usuario_sistema,
                         "",
-                        "Marcado automáticamente por el sistema (90+ días sin retirar)"
+                        f"Marcado automáticamente por el sistema ({dias_abandonado}+ días sin retirar)"
                     )
                     resumen['abandonados'] += 1
             
@@ -761,37 +775,43 @@ class ModuloEquipos:
     
     @staticmethod
     def modificar_equipo(id_equipo, datos, id_usuario):
-        """
-        Modifica un equipo existente
-        
-        Args:
-            id_equipo (int): ID del equipo
-            datos (dict): Datos a modificar
-            id_usuario (int): ID del usuario
-            
-        Returns:
-            tuple: (exito, mensaje)
-        """
+        """Modifica un equipo existente"""
         try:
-            # Obtener equipo actual
             equipo_actual = ModuloEquipos.obtener_equipo_por_id(id_equipo)
-            
             if not equipo_actual:
                 return False, "Equipo no encontrado"
             
-            # Construir UPDATE dinámicamente
+            # Mapeo completo de campos del formulario a la BD
+            mapeo_campos = {
+                'tipo_dispositivo': 'tipo_dispositivo',
+                'marca': 'marca',
+                'modelo': 'modelo',
+                'identificador': 'identificador',
+                'color': 'color',
+                'estado_actual': 'estado_actual',
+                'falla_declarada': 'falla_declarada',
+                'diagnostico': 'diagnostico_tecnico',
+                'solucion': 'solucion_aplicada',
+                'accesorios': 'accesorios',
+                'observaciones_internas': 'observaciones_internas'
+            }
+            
             campos_actualizar = []
             valores = []
             
-            for campo, valor in datos.items():
-                if campo in ['marca', 'modelo', 'identificador', 'color', 
-                             'estado_fisico', 'accesorios', 'falla_declarada', 
-                             'diagnostico_tecnico']:
-                    campos_actualizar.append(f"{campo} = ?")
-                    valores.append(valor)
+            for campo_form, valor in datos.items():
+                if campo_form in mapeo_campos:
+                    campo_bd = mapeo_campos[campo_form]
+                    campos_actualizar.append(f"{campo_bd} = ?")
+                    valores.append(valor if valor else "")
             
             if not campos_actualizar:
                 return False, "No hay campos para actualizar"
+            
+            # Agregar fecha_ultimo_movimiento
+            campos_actualizar.append("fecha_ultimo_movimiento = ?")
+            from datetime import datetime
+            valores.append(datetime.now())
             
             valores.append(id_equipo)
             
@@ -803,7 +823,6 @@ class ModuloEquipos:
             
             db.ejecutar_consulta(consulta, tuple(valores))
             
-            # Registrar en auditoría
             from sistema_base.seguridad import registrar_accion_auditoria
             registrar_accion_auditoria(
                 id_usuario=id_usuario,
@@ -838,22 +857,22 @@ class ModuloEquipos:
             if not equipo:
                 return False, "Equipo no encontrado"
             
-            # Verificar que no tenga presupuestos activos
+            # Verificar que no tenga presupuestos activos (BD: columna estado)
             consulta_presupuestos = """
             SELECT COUNT(*) as total
             FROM presupuestos
-            WHERE id_equipo = ? AND estado NOT IN ('Rechazado', 'Vencido')
+            WHERE id_equipo = ? AND estado IN ('Pendiente', 'Aceptado', 'Aprobado')
             """
             resultado_presu = db.obtener_uno(consulta_presupuestos, (id_equipo,))
             
             if resultado_presu and resultado_presu['total'] > 0:
                 return False, f"No se puede eliminar: el equipo tiene {resultado_presu['total']} presupuesto(s) activo(s)"
             
-            # Verificar que no tenga órdenes activas
+            # Verificar que no tenga órdenes activas (BD: columna estado)
             consulta_ordenes = """
             SELECT COUNT(*) as total
             FROM ordenes_trabajo
-            WHERE id_equipo = ? AND estado NOT IN ('Cancelada', 'Completada')
+            WHERE id_equipo = ? AND estado NOT IN ('Finalizada con reparación', 'Finalizada sin reparación')
             """
             resultado_ordenes = db.obtener_uno(consulta_ordenes, (id_equipo,))
             
@@ -886,73 +905,3 @@ class ModuloEquipos:
         except Exception as e:
             config.guardar_log(f"Error al eliminar equipo: {e}", "ERROR")
             return False, f"Error: {str(e)}"
-    
-    @staticmethod
-    def eliminar_equipo(id_equipo, id_usuario):
-        """
-        Elimina (desactiva) un equipo
-        
-        Args:
-            id_equipo (int): ID del equipo
-            id_usuario (int): ID del usuario que elimina
-            
-        Returns:
-            tuple: (exito: bool, mensaje: str)
-        """
-        try:
-            # Verificar que existe
-            equipo = ModuloEquipos.obtener_equipo_por_id(id_equipo)
-            if not equipo:
-                return False, "Equipo no encontrado"
-            
-            # Verificar que no tenga presupuestos aprobados o pendientes
-            try:
-                consulta_presupuestos = """
-                SELECT COUNT(*) as total
-                FROM presupuestos
-                WHERE id_equipo = ? AND estado_presupuesto IN ('Pendiente', 'Aprobado')
-                """
-                resultado = db.obtener_uno(consulta_presupuestos, (id_equipo,))
-                
-                if resultado and resultado['total'] > 0:
-                    return False, f"No se puede eliminar: el equipo tiene {resultado['total']} presupuesto(s) activo(s)"
-            except:
-                pass  # Tabla presupuestos no existe aún
-            
-            # Verificar que no tenga órdenes activas
-            try:
-                consulta_ordenes = """
-                SELECT COUNT(*) as total
-                FROM ordenes_trabajo
-                WHERE id_equipo = ? AND estado_orden NOT IN ('Completada', 'Cancelada')
-                """
-                resultado = db.obtener_uno(consulta_ordenes, (id_equipo,))
-                
-                if resultado and resultado['total'] > 0:
-                    return False, f"No se puede eliminar: el equipo tiene {resultado['total']} orden(es) activa(s)"
-            except:
-                pass  # Tabla ordenes_trabajo no existe aún
-            
-            # Soft delete
-            db.ejecutar_consulta(
-                "UPDATE equipos SET activo = 0 WHERE id_equipo = ?",
-                (id_equipo,)
-            )
-            
-            # Auditoría (acción crítica)
-            from sistema_base.seguridad import registrar_accion_auditoria
-            registrar_accion_auditoria(
-                id_usuario=id_usuario,
-                accion="Eliminar",
-                modulo="Equipos",
-                id_registro=id_equipo,
-                motivo="Equipo desactivado",
-                es_critica=True
-            )
-            
-            config.guardar_log(f"Equipo ID {id_equipo} eliminado por usuario ID {id_usuario}", "INFO")
-            return True, "Equipo eliminado exitosamente"
-            
-        except Exception as e:
-            config.guardar_log(f"Error al eliminar equipo: {e}", "ERROR")
-            return False, f"Error al eliminar equipo: {str(e)}"
