@@ -83,9 +83,8 @@ class VentanaEquipos(QWidget):
         self.campo_busqueda.textChanged.connect(self.buscar_equipos)
         layout.addWidget(self.campo_busqueda, 1)
         
-        # Filtro por estado (por defecto: solo equipos en taller, sin entregados)
+        # Filtro por estado
         self.combo_estado = ListaDesplegable()
-        self.combo_estado.addItem("En taller (pendientes de entrega)", ModuloEquipos.FILTRO_EN_TALLER)
         self.combo_estado.addItem("Todos los estados", "")
         for estado in ModuloEquipos.ESTADOS_EQUIPOS:
             self.combo_estado.addItem(estado, estado)
@@ -266,7 +265,11 @@ class VentanaEquipos(QWidget):
             filtro_estado = self.combo_estado.currentData()
             filtro_tipo = self.combo_tipo.currentData()
             
-            # Obtener equipos ("En taller" excluye entregados; "Entregado" los muestra)
+            # Normalizar filtro_estado: None o "" = "Todos los estados" (sin filtro)
+            if filtro_estado is None:
+                filtro_estado = ""
+            
+            # Obtener equipos ("En taller" excluye entregados; "Todos" muestra todos)
             equipos = ModuloEquipos.listar_equipos(
                 filtro_estado=filtro_estado,
                 filtro_tipo=filtro_tipo,
@@ -1157,17 +1160,11 @@ class DialogoDetalleEquipo(QDialog):
         layout_scroll = QVBoxLayout()
         layout_scroll.setSpacing(2)  # Poco espacio entre label e input para que no se crucen
         
-        # Estado Actual
+        # Estado Actual (solo estados esenciales)
         layout_scroll.addWidget(QLabel("Estado Actual:"))
         self.combo_estado = ListaDesplegable()
-        self.combo_estado.addItem("En revisión", "En revisión")
-        self.combo_estado.addItem("Esperando presupuesto", "Esperando presupuesto")
-        self.combo_estado.addItem("Presupuesto aprobado", "Presupuesto aprobado")
-        self.combo_estado.addItem("En reparación", "En reparación")
-        self.combo_estado.addItem("Listo", "Listo")
-        self.combo_estado.addItem("Entregado", "Entregado")
-        self.combo_estado.addItem("Sin reparación", "Sin reparación")
-        self.combo_estado.addItem("Abandonado", "Abandonado")
+        for estado in ModuloEquipos.ESTADOS_EQUIPOS:
+            self.combo_estado.addItem(estado, estado)
         layout_scroll.addWidget(self.combo_estado)
         
         layout_scroll.addSpacing(6)

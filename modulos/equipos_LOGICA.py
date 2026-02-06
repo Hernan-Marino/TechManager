@@ -29,7 +29,6 @@ class ModuloEquipos:
     ESTADOS_EQUIPOS = [
         "En revisión",
         "En reparación",
-        "Esperando repuesto",
         "Listo",
         "Entregado",
         "Sin reparación",
@@ -78,12 +77,19 @@ class ModuloEquipos:
             
             parametros = []
             
+            # Normalizar filtro_estado: None se trata como "" (sin filtro)
+            if filtro_estado is None:
+                filtro_estado = ""
+            
             # Filtro "en taller" (excluye entregados) o por estado concreto
             if filtro_estado == ModuloEquipos.FILTRO_EN_TALLER or excluir_entregados:
+                # Solo equipos en taller (excluye Entregado)
                 consulta += " AND e.estado_actual != 'Entregado'"
             elif filtro_estado and filtro_estado != ModuloEquipos.FILTRO_EN_TALLER:
+                # Filtrar por estado específico
                 consulta += " AND e.estado_actual = ?"
                 parametros.append(filtro_estado)
+            # Si filtro_estado == "" (vacío), no se aplica filtro → muestra TODOS los estados (incluyendo Entregado)
             
             if filtro_tipo:
                 consulta += " AND e.tipo_dispositivo = ?"
